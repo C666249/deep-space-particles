@@ -379,45 +379,57 @@
   var expDelay = new Float32Array(N);
 
   (function buildNebula() {
-    var HUES = [214, 232, 250, 268, 290, 196, 322, 205];
+    var HUES = [212, 228, 248, 268, 288, 196, 318, 205, 236];
     var clusters = [];
-    for (var c = 0; c < 8; c++) {
+    for (var c = 0; c < 9; c++) {
       clusters.push({
-        x: rand(-13, 13), y: rand(-8, 8), z: rand(-12, 4),
-        sx: rand(2.2, 5.4), sy: rand(1.5, 4.0), sz: rand(1.8, 4.6),
+        x: rand(-10, 10), y: rand(-6.5, 6.5), z: rand(-11, 3),
+        sx: rand(1.6, 4.2), sy: rand(1.2, 3.4), sz: rand(1.5, 3.8),
         hue: HUES[c % HUES.length]
       });
     }
+    var gauss = function () { return (Math.random() + Math.random() + Math.random() - 1.5) * 0.74; };
 
     for (var i = 0; i < N; i++) {
       var i3 = i * 3;
       var x, y, z, col, size;
+      var roll = Math.random();
+      var cl = clusters[(Math.random() * clusters.length) | 0];
 
-      if (Math.random() < 0.30) {
-        // 远处尘埃
+      if (roll < 0.34) {
+        // 星云雾：大而暗的气体团，负责层次感
+        x = cl.x + gauss() * cl.sx * 1.45;
+        y = cl.y + gauss() * cl.sy * 1.45;
+        z = cl.z + gauss() * cl.sz * 1.45;
+        var glow = rand(0.10, 0.28);
+        col = hsl2rgb((cl.hue + rand(-10, 10)) / 360, 0.9, 0.58);
+        col = [col[0] * glow, col[1] * glow, col[2] * glow];
+        size = rand(0.06, 0.30);
+      } else if (roll < 0.88) {
+        // 星云中的星点
+        x = cl.x + gauss() * cl.sx;
+        y = cl.y + gauss() * cl.sy;
+        z = cl.z + gauss() * cl.sz;
+        col = hsl2rgb((cl.hue + rand(-14, 14)) / 360, rand(0.7, 1.0), rand(0.55, 0.82));
+        size = rand(0.016, 0.050);
+      } else {
+        // 远景尘埃与亮星
         var u = Math.random() * 2 - 1;
         var th = Math.random() * Math.PI * 2;
-        var r = rand(9, 30);
+        var r = rand(10, 26);
         var sq = Math.sqrt(1 - u * u);
         x = r * sq * Math.cos(th) * 1.15;
         y = r * sq * Math.sin(th) * 0.78;
         z = r * u * 0.92 - 5;
-        var hh = 198 + Math.random() * 92;
-        col = hsl2rgb(hh / 360, rand(0.28, 0.78), rand(0.5, 0.86));
-        size = rand(0.008, 0.021);
-        if (Math.random() < 0.035) {
-          size = rand(0.032, 0.062);
-          col = hsl2rgb(hh / 360, 0.28, 0.96);
+        var hh = 200 + Math.random() * 92;
+        col = hsl2rgb(hh / 360, rand(0.25, 0.7), rand(0.6, 0.95));
+        var dimmer = rand(0.35, 0.85);
+        col = [col[0] * dimmer, col[1] * dimmer, col[2] * dimmer];
+        size = rand(0.012, 0.030);
+        if (Math.random() < 0.06) {
+          size = rand(0.05, 0.11);
+          col = [0.92, 0.97, 1.0];
         }
-      } else {
-        // 星云团
-        var cl = clusters[(Math.random() * clusters.length) | 0];
-        var g = function () { return (Math.random() + Math.random() + Math.random() - 1.5) * 0.74; };
-        x = cl.x + g() * cl.sx;
-        y = cl.y + g() * cl.sy;
-        z = cl.z + g() * cl.sz;
-        col = hsl2rgb((cl.hue + rand(-16, 16)) / 360, rand(0.55, 1.0), rand(0.4, 0.72));
-        size = rand(0.009, 0.030);
       }
 
       home[i3] = x; home[i3 + 1] = y; home[i3 + 2] = z;
@@ -575,7 +587,7 @@
       var c = r < 0.12 ? GOLD : (r < 0.5 ? WHITE : CYAN);
       var m = rand(0.75, 1.0);
       tgtCol[i3] = c[0] * m; tgtCol[i3 + 1] = c[1] * m; tgtCol[i3 + 2] = c[2] * m;
-      tgtSize[i] = rand(0.012, 0.024);
+      tgtSize[i] = rand(0.018, 0.034);
     }
   }
 
@@ -596,7 +608,7 @@
                 lerp(PINK_DEEP[2], PINK_PALE[2], t)];
       var m = rand(0.8, 1.0);
       tgtCol[i3] = c[0] * m; tgtCol[i3 + 1] = c[1] * m; tgtCol[i3 + 2] = c[2] * m;
-      tgtSize[i] = rand(0.011, 0.022);
+      tgtSize[i] = rand(0.016, 0.030);
     }
   }
 
@@ -669,7 +681,7 @@
       fw.col[i3] = lerp(pal[0], 1, warm * 0.45);
       fw.col[i3 + 1] = lerp(pal[1], 1, warm * 0.45);
       fw.col[i3 + 2] = lerp(pal[2], 1, warm * 0.45);
-      fw.size[i] = rand(0.012, 0.030);
+      fw.size[i] = rand(0.016, 0.038);
       fwMax[i] = rand(1.0, 2.3);
       fwLife[i] = fwMax[i];
       fw.alpha[i] = 1;
@@ -1194,11 +1206,20 @@
   resize();
   requestAnimationFrame(frame);
 
-  // #play 直接进入（跳过首屏）
-  if (location.hash === '#play' || location.hash === '#demo') {
-    dismissIntro();
-    document.getElementById('hint').textContent = HINTS.idle;
-  }
+  // #play 直接进入（跳过首屏）；#3 / #heart / #fire 可直接分享某个瞬间
+  (function bootHash() {
+    var h = (location.hash || '').toLowerCase();
+    if (h === '#3' || h === '#2' || h === '#1') {
+      dismissIntro(); doDigit(parseInt(h.charAt(1), 10));
+    } else if (h === '#heart') {
+      dismissIntro(); doHeart();
+    } else if (h === '#fire') {
+      dismissIntro(); doFinale();
+    } else if (h === '#play' || h === '#demo') {
+      dismissIntro();
+      document.getElementById('hint').textContent = HINTS.idle;
+    }
+  })();
 
   // 动态加载手势库（不阻塞渲染）
   (function loadHands() {
