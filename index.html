@@ -504,9 +504,9 @@
     return out;
   }
 
-  var heartPts = (function () {
+  var HEART = (function () {
     var poly = [];
-    for (var t = 0; t <= Math.PI * 2 + 0.001; t += 0.012) {
+    for (var t = 0; t <= Math.PI * 2 + 0.001; t += 0.010) {
       var st = Math.sin(t);
       poly.push({
         x: 16 * st * st * st,
@@ -522,8 +522,7 @@
       if (poly[i].y > maxY) maxY = poly[i].y;
     }
     var cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
-    var scale = 5.4 / (maxX - minX);
-    var maxR = 0;
+    var scale = 6.4 / (maxX - minX);
 
     function inPoly(px, py) {
       var inside = false;
@@ -534,9 +533,25 @@
       return inside;
     }
 
-    var pts = [];
+    // 轮廓：亮而密的边缘线
+    var edge = [];
+    for (var e = 0; e < poly.length; e++) {
+      var ex = (poly[e].x - cx) * scale;
+      var ey = (poly[e].y - cy) * scale;
+      // 沿边缘做细分，让线条连续
+      var nxt = poly[(e + 1) % poly.length];
+      var nx = (nxt.x - cx) * scale, ny = (nxt.y - cy) * scale;
+      for (var s = 0; s < 3; s++) {
+        var u2 = s / 3;
+        edge.push([lerp(ex, nx, u2), lerp(ey, ny, u2), rand(-0.18, 0.18), 0]);
+      }
+    }
+
+    // 内部：填充
+    var fill = [];
+    var maxR = 0.0001;
     var guard = 0;
-    while (pts.length < 4200 && guard < 300000) {
+    while (fill.length < 4600 && guard < 400000) {
       guard++;
       var px = rand(minX, maxX), py = rand(minY, maxY);
       if (!inPoly(px, py)) continue;
@@ -544,18 +559,17 @@
       var Y = (py - cy) * scale;
       var d = Math.hypot(X, Y);
       if (d > maxR) maxR = d;
-      pts.push([X, Y, d]);
+      fill.push([X, Y, d]);
     }
-
-    var out = new Array(pts.length);
-    for (var k = 0; k < pts.length; k++) {
-      var p = pts[k];
+    var out = new Array(fill.length);
+    for (var k = 0; k < fill.length; k++) {
+      var p = fill[k];
       var q = 1 - Math.pow(clamp(p[2] / (maxR * 0.98), 0, 1), 2);
-      var thick = 0.52 * Math.sqrt(Math.max(q, 0));
+      var thick = 0.46 * Math.sqrt(Math.max(q, 0));
       var zz = thick * rand(0.25, 1) * (Math.random() < 0.5 ? -1 : 1);
       out[k] = [p[0], p[1], zz, p[2] / maxR];
     }
-    return out;
+    return { fill: out, edge: edge };
   })();
 
   /* =========================================================
@@ -566,7 +580,7 @@
   var expT = 0;
   var heartPulse = 0;
 
-  var CYAN = [0.55, 0.95, 1.0];
+  var CYAN = [0.32, 0.90, 1.0];
   var WHITE = [1, 1, 1];
   var GOLD = [1, 0.84, 0.45];
   var PINK_DEEP = [0.96, 0.10, 0.34];
@@ -587,7 +601,7 @@
       var c = r < 0.12 ? GOLD : (r < 0.5 ? WHITE : CYAN);
       var m = rand(0.75, 1.0);
       tgtCol[i3] = c[0] * m; tgtCol[i3 + 1] = c[1] * m; tgtCol[i3 + 2] = c[2] * m;
-      tgtSize[i] = rand(0.018, 0.034);
+      tgtSize[i] = rand(0.022, 0.042);
     }
   }
 
@@ -595,20 +609,28 @@
     fieldMode = 'shape';
     for (var i = 0; i < N; i++) {
       var i3 = i * 3;
-      var p = heartPts[(Math.random() * heartPts.length) | 0];
-      tgt[i3] = p[0] + rand(-0.03, 0.03);
-      tgt[i3 + 1] = p[1] + rand(-0.03, 0.03);
-      tgt[i3 + 2] = p[2] + rand(-0.04, 0.04);
+      var useEdge = Math.random() < 0.44;
+      var arr = useEdge ? HEART.edge : HEART.fill;
+      var p = arr[(Math.random() * arr.length) | 0];
+      var jit = useEdge ? 0.022 : 0.05;
 
-      var t = Math.pow(1 - clamp(p[3], 0, 1), 1.4);
+      tgt[i3] = p[0] + rand(-jit, jit);
+      tgt[i3 + 1] = p[1] + rand(-jit, jit);
+      tgt[i3 + 2] = p[2] + rand(-0.035, 0.035);
+
       var c;
-      if (Math.random() < 0.07) c = GOLD;
-      else c = [lerp(PINK_DEEP[0], PINK_PALE[0], t),
-                lerp(PINK_DEEP[1], PINK_PALE[1], t),
-                lerp(PINK_DEEP[2], PINK_PALE[2], t)];
-      var m = rand(0.8, 1.0);
+      if (useEdge) {
+        c = Math.random() < 0.55 ? [1.0, 0.42, 0.64] : [1.0, 0.86, 0.93];
+      } else {
+        var t = Math.pow(1 - clamp(p[3], 0, 1), 1.3);
+        c = [lerp(PINK_DEEP[0], PINK_PALE[0], t),
+             lerp(PINK_DEEP[1], PINK_PALE[1], t),
+             lerp(PINK_DEEP[2], PINK_PALE[2], t)];
+        if (Math.random() < 0.05) c = GOLD;
+      }
+      var m = rand(0.82, 1.0);
       tgtCol[i3] = c[0] * m; tgtCol[i3 + 1] = c[1] * m; tgtCol[i3 + 2] = c[2] * m;
-      tgtSize[i] = rand(0.016, 0.030);
+      tgtSize[i] = useEdge ? rand(0.024, 0.042) : rand(0.015, 0.028);
     }
   }
 
