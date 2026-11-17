@@ -1478,6 +1478,11 @@
     } else if (h === '#play' || h === '#demo') {
       dismissIntro();
       document.getElementById('hint').textContent = HINTS.idle;
+    } else if (h === '#cam' || h === '#auto') {
+      dismissIntro();
+      enableCamera().then(function (ok) {
+        if (ok) { startEngine(false); pump(); }
+      });
     }
   })();
 
