@@ -76,7 +76,7 @@
   #toast.on{opacity:1;transform:translate(-50%,0)}
 
   /* ---------- camera preview ---------- */
-  #camwrap{position:fixed;z-index:10;right:22px;bottom:22px;width:158px;height:118px;
+  #camwrap{position:fixed;z-index:10;right:22px;bottom:22px;width:180px;height:135px;
     border-radius:14px;overflow:hidden;opacity:0;transition:opacity .8s ease;
     border:1px solid rgba(130,215,255,.22);box-shadow:0 8px 36px rgba(0,20,60,.6), inset 0 0 30px rgba(0,120,200,.15);
     background:#000;pointer-events:none}
@@ -1244,7 +1244,10 @@
   }
 
   async function startEngine(retry) {
-    if (engineState === 'ready') return true;
+    if (engineState === 'ready') {
+      if (camOn) pump();
+      return true;
+    }
     if (engineState === 'loading') return false;
     engineState = 'loading';
     setRow(rowEng, 'wait', '手势引擎 加载中');
@@ -1381,6 +1384,7 @@
     var ok = await enableCamera();
     if (ok) {
       startEngine(false);
+      pump();
       hintEl.textContent = '把手掌放进画面，比出 3 · 2 · 1';
       hintEl.classList.add('on');
     }
