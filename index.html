@@ -653,15 +653,16 @@
       var i3 = i * 3;
       var x = field.pos[i3], y = field.pos[i3 + 1], z = field.pos[i3 + 2];
       var len = Math.hypot(x, y, z) || 1;
-      var sp = rand(0.10, 0.62);
+      var sp = rand(0.14, 0.85);
       field.vel[i3] = (x / len) * sp + rand(-0.10, 0.10);
       field.vel[i3 + 1] = (y / len) * sp + rand(-0.10, 0.10);
       field.vel[i3 + 2] = (z / len) * sp + rand(-0.14, 0.14);
       expDelay[i] = rand(0, 0.55);
       // 爆散时提亮
       var c = Math.random() < 0.45 ? GOLD : (Math.random() < 0.5 ? WHITE : PINK_PALE);
-      field.col[i3] = c[0]; field.col[i3 + 1] = c[1]; field.col[i3 + 2] = c[2];
-      tgtCol[i3] = c[0]; tgtCol[i3 + 1] = c[1]; tgtCol[i3 + 2] = c[2];
+      var bo = rand(1.0, 1.4);
+      field.col[i3] = c[0] * bo; field.col[i3 + 1] = c[1] * bo; field.col[i3 + 2] = c[2] * bo;
+      tgtCol[i3] = c[0] * bo; tgtCol[i3 + 1] = c[1] * bo; tgtCol[i3 + 2] = c[2] * bo;
       tgtSize[i] = rand(0.014, 0.032);
       field.size[i] = tgtSize[i];
     }
@@ -687,26 +688,42 @@
 
   function spawnBurst(cx, cy, cz, count, palette) {
     var pal = palette || FW_PALETTES[(Math.random() * FW_PALETTES.length) | 0];
-    var power = rand(0.09, 0.26);
-    for (var k = 0; k < count; k++) {
+    var power = rand(0.07, 0.20);
+    var n = count || 160;
+    for (var k = 0; k < n; k++) {
       var i = fwCursor; fwCursor = (fwCursor + 1) % FW_N;
       var i3 = i * 3;
       var u = Math.random() * 2 - 1;
       var th = Math.random() * Math.PI * 2;
       var sq = Math.sqrt(1 - u * u);
-      var sp = power * (0.35 + Math.pow(Math.random(), 0.5) * 0.9);
+      var sp = power * (0.3 + Math.pow(Math.random(), 0.45) * 0.95);
       fw.pos[i3] = cx; fw.pos[i3 + 1] = cy; fw.pos[i3 + 2] = cz;
       fw.vel[i3] = sq * Math.cos(th) * sp;
-      fw.vel[i3 + 1] = u * sp + power * 0.35;
-      fw.vel[i3 + 2] = sq * Math.sin(th) * sp * 0.75;
+      fw.vel[i3 + 1] = u * sp + power * 0.3;
+      fw.vel[i3 + 2] = sq * Math.sin(th) * sp * 0.7;
       var warm = Math.random();
-      fw.col[i3] = lerp(pal[0], 1, warm * 0.45);
-      fw.col[i3 + 1] = lerp(pal[1], 1, warm * 0.45);
-      fw.col[i3 + 2] = lerp(pal[2], 1, warm * 0.45);
-      fw.size[i] = rand(0.016, 0.038);
-      fwMax[i] = rand(1.0, 2.3);
+      var boost = 1.15;
+      fw.col[i3] = lerp(pal[0], 1, warm * 0.55) * boost;
+      fw.col[i3 + 1] = lerp(pal[1], 1, warm * 0.55) * boost;
+      fw.col[i3 + 2] = lerp(pal[2], 1, warm * 0.55) * boost;
+      fw.size[i] = rand(0.024, 0.055);
+      fwMax[i] = rand(1.3, 2.7);
       fwLife[i] = fwMax[i];
-      fw.alpha[i] = 1;
+      fw.alpha[i] = 0.95;
+    }
+    // 爆心闪光
+    for (var c2 = 0; c2 < 5; c2++) {
+      var j = fwCursor; fwCursor = (fwCursor + 1) % FW_N;
+      var j3 = j * 3;
+      fw.pos[j3] = cx; fw.pos[j3 + 1] = cy; fw.pos[j3 + 2] = cz;
+      fw.vel[j3] = rand(-0.03, 0.03);
+      fw.vel[j3 + 1] = rand(-0.03, 0.03);
+      fw.vel[j3 + 2] = rand(-0.03, 0.03);
+      fw.col[j3] = 1; fw.col[j3 + 1] = 0.98; fw.col[j3 + 2] = 0.92;
+      fw.size[j] = rand(0.12, 0.26);
+      fwMax[j] = 0.42;
+      fwLife[j] = fwMax[j];
+      fw.alpha[j] = 1;
     }
     upload(fw, ['pos', 'col', 'size', 'alpha']);
   }
@@ -718,7 +735,7 @@
       rand(-halfW * 0.72, halfW * 0.72),
       rand(-halfH * 0.62, halfH * 0.55),
       rand(-6, 4),
-      IS_MOBILE ? 70 : 130
+      IS_MOBILE ? 110 : 190
     );
   }
 
@@ -739,7 +756,7 @@
       var t = fwLife[i] / fwMax[i];
       if (t <= 0) { fw.alpha[i] = 0; fwLife[i] = 0; }
       else {
-        fw.alpha[i] = Math.pow(clamp(t, 0, 1), 0.75) * (0.55 + 0.45 * Math.min(1, (1 - t) * 6));
+        fw.alpha[i] = Math.pow(clamp(t, 0, 1), 0.55);
         fw.size[i] *= 0.996;
       }
     }
@@ -848,7 +865,7 @@
     if (free) {
       expT += dt;
       for (i = 0; i < N; i++) {
-        var a2 = 1 - clamp((expT - expDelay[i]) / 2.0, 0, 1);
+        var a2 = 1 - clamp((expT - expDelay[i]) / 2.4, 0, 1);
         field.alpha[i] = a2 * a2;
       }
       upload(field, ['pos', 'col', 'size', 'alpha']);
@@ -951,15 +968,15 @@
     explodeHeart();
 
     var n = 0;
-    var total = IS_MOBILE ? 14 : 22;
+    var total = IS_MOBILE ? 18 : 28;
     var iv = setInterval(function () {
       spawnRandomBurst();
       if (++n >= total) clearInterval(iv);
-    }, 210);
+    }, 190);
 
     // 立刻来两发
     spawnRandomBurst();
-    setTimeout(spawnRandomBurst, 90);
+    setTimeout(spawnRandomBurst, 80);
 
     // 一段时间后回到星尘
     setTimeout(function () {
