@@ -72,8 +72,8 @@
 
   /* ---------- intro ---------- */
   #intro{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;
-    background:radial-gradient(circle at 50% 45%, rgba(6,10,28,.55), rgba(3,4,10,.94) 70%);
-    backdrop-filter:blur(6px);transition:opacity .9s ease, visibility .9s}
+    background:radial-gradient(circle at 50% 45%, rgba(4,7,20,.30), rgba(3,4,10,.88) 72%);
+    backdrop-filter:blur(3px);transition:opacity .9s ease, visibility .9s}
   #intro.gone{opacity:0;visibility:hidden}
   .inner{text-align:center;padding:0 26px;max-width:560px}
   .kicker{font-size:10px;letter-spacing:.5em;color:rgba(130,220,255,.6);margin-bottom:20px}
@@ -1193,6 +1193,12 @@
      ========================================================= */
   resize();
   requestAnimationFrame(frame);
+
+  // #play 直接进入（跳过首屏）
+  if (location.hash === '#play' || location.hash === '#demo') {
+    dismissIntro();
+    document.getElementById('hint').textContent = HINTS.idle;
+  }
 
   // 动态加载手势库（不阻塞渲染）
   (function loadHands() {
