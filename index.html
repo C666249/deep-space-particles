@@ -1,0 +1,1208 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#03040a" />
+<title>深空 · 手势粒子 | Deep Space</title>
+<style>
+  :root{
+    --ink:#eaf6ff;
+    --dim:rgba(198,222,255,.55);
+    --line:rgba(140,210,255,.20);
+    --cyan:#7ff0ff;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{
+    height:100%;margin:0;background:#03040a;overflow:hidden;
+    color:var(--ink);
+    font-family:"PingFang SC","HarmonyOS Sans SC","Microsoft YaHei",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    cursor:crosshair;
+  }
+  #bg{position:fixed;inset:0;z-index:0;pointer-events:none;
+    background:
+      radial-gradient(62% 46% at 50% 42%, rgba(46,72,190,.24), transparent 72%),
+      radial-gradient(46% 42% at 80% 80%, rgba(150,40,170,.16), transparent 72%),
+      radial-gradient(52% 42% at 16% 18%, rgba(0,140,190,.13), transparent 70%),
+      #03040a;}
+  #gl{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:1}
+  #glow{position:fixed;inset:0;z-index:2;pointer-events:none;opacity:0;
+    transition:opacity 1.4s cubic-bezier(.22,1,.36,1);mix-blend-mode:screen;
+    background:radial-gradient(circle at 50% 48%, rgba(255,45,107,.26), rgba(255,45,107,.07) 34%, transparent 64%);}
+  #vig{position:fixed;inset:0;z-index:3;pointer-events:none;
+    background:radial-gradient(circle at 50% 50%, transparent 42%, rgba(0,0,0,.78) 100%);}
+
+  /* ---------- HUD ---------- */
+  #brand{position:fixed;z-index:10;top:22px;left:24px;pointer-events:none;
+    opacity:0;transition:opacity 1s ease .3s}
+  #brand.on{opacity:1}
+  #brand .k{font-size:10px;letter-spacing:.42em;color:rgba(140,225,255,.72);text-transform:uppercase}
+  #brand .t{margin-top:6px;font-size:13px;letter-spacing:.28em;color:rgba(235,248,255,.86)}
+
+  #hint{position:fixed;z-index:10;left:50%;bottom:96px;transform:translateX(-50%);
+    font-size:13px;letter-spacing:.16em;color:rgba(220,240,255,.72);white-space:nowrap;
+    text-shadow:0 0 24px rgba(80,180,255,.5);transition:opacity .5s ease;
+    opacity:0;pointer-events:none}
+  #hint.on{opacity:1}
+
+  #bar{position:fixed;z-index:10;left:50%;bottom:34px;transform:translateX(-50%);
+    display:flex;gap:8px;align-items:center;opacity:0;transition:opacity .8s ease .6s}
+  #bar.on{opacity:1}
+  #bar button{
+    appearance:none;border:1px solid rgba(150,215,255,.20);background:rgba(120,190,255,.05);
+    color:rgba(225,245,255,.78);font:inherit;font-size:13px;letter-spacing:.1em;
+    padding:8px 14px;border-radius:999px;cursor:pointer;backdrop-filter:blur(8px);
+    transition:.25s ease}
+  #bar button:hover{background:rgba(120,200,255,.16);border-color:rgba(160,230,255,.5);
+    color:#fff;box-shadow:0 0 18px rgba(90,190,255,.35)}
+  #bar button:active{transform:scale(.94)}
+
+  /* ---------- camera preview ---------- */
+  #camwrap{position:fixed;z-index:10;right:22px;bottom:22px;width:158px;height:118px;
+    border-radius:14px;overflow:hidden;opacity:0;transition:opacity .8s ease;
+    border:1px solid rgba(130,215,255,.22);box-shadow:0 8px 36px rgba(0,20,60,.6), inset 0 0 30px rgba(0,120,200,.15);
+    background:#000;pointer-events:none}
+  #camwrap.on{opacity:.94}
+  #camwrap video,#camwrap canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  #camwrap video{transform:scaleX(-1);opacity:.55;filter:saturate(.5) contrast(1.1)}
+  #camwrap .tag{position:absolute;left:8px;top:7px;font-size:9px;letter-spacing:.2em;
+    color:rgba(130,235,255,.8);text-shadow:0 0 10px #000}
+  #camwrap .dot{position:absolute;right:8px;top:8px;width:6px;height:6px;border-radius:50%;
+    background:#41ffa8;box-shadow:0 0 10px #41ffa8}
+
+  /* ---------- intro ---------- */
+  #intro{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;
+    background:radial-gradient(circle at 50% 45%, rgba(6,10,28,.55), rgba(3,4,10,.94) 70%);
+    backdrop-filter:blur(6px);transition:opacity .9s ease, visibility .9s}
+  #intro.gone{opacity:0;visibility:hidden}
+  .inner{text-align:center;padding:0 26px;max-width:560px}
+  .kicker{font-size:10px;letter-spacing:.5em;color:rgba(130,220,255,.6);margin-bottom:20px}
+  h1{margin:0;font-size:clamp(46px,11vw,86px);font-weight:200;letter-spacing:.28em;
+    text-indent:.28em;
+    background:linear-gradient(180deg,#ffffff,#9fd8ff 55%,#5a8dff);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(0 0 40px rgba(90,170,255,.45))}
+  .sub{margin:14px 0 34px;font-size:13px;letter-spacing:.32em;color:rgba(200,225,255,.6)}
+  .steps{display:flex;flex-direction:column;gap:12px;margin:0 auto 34px;max-width:330px;text-align:left}
+  .steps > div{display:flex;gap:14px;align-items:baseline;
+    border-left:1px solid rgba(130,200,255,.22);padding:2px 0 2px 14px}
+  .steps b{font-weight:500;font-size:13px;color:var(--cyan);letter-spacing:.12em;min-width:66px}
+  .steps span{font-size:12.5px;line-height:1.5;color:rgba(205,225,245,.62);letter-spacing:.04em}
+  .btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  .btns button{appearance:none;font:inherit;cursor:pointer;border-radius:999px;
+    padding:12px 26px;font-size:13px;letter-spacing:.18em;transition:.3s ease}
+  .primary{border:1px solid rgba(140,225,255,.55);color:#031018;
+    background:linear-gradient(180deg,#c8f4ff,#65c8ff);
+    box-shadow:0 0 34px rgba(80,190,255,.4)}
+  .primary:hover{box-shadow:0 0 50px rgba(110,215,255,.7);transform:translateY(-1px)}
+  .ghost{border:1px solid rgba(150,200,255,.24);background:transparent;color:rgba(210,232,255,.7)}
+  .ghost:hover{border-color:rgba(150,220,255,.5);color:#fff}
+  .foot{margin-top:26px;font-size:11px;letter-spacing:.1em;color:rgba(170,195,220,.38)}
+  .err{margin-top:18px;font-size:12px;color:#ff9ab0;letter-spacing:.04em;line-height:1.6}
+
+  @media (max-width:640px){
+    #camwrap{width:112px;height:84px;right:14px;bottom:14px;border-radius:11px}
+    #hint{bottom:88px;font-size:11.5px;letter-spacing:.1em}
+    #bar{bottom:26px;gap:6px}
+    #bar button{padding:7px 12px;font-size:12px}
+    #brand{top:16px;left:16px}
+    #brand .t{font-size:11px;letter-spacing:.2em}
+  }
+</style>
+</head>
+<body>
+<div id="bg"></div>
+<canvas id="gl"></canvas>
+<div id="glow"></div>
+<div id="vig"></div>
+
+<div id="brand">
+  <div class="k">deep space</div>
+  <div class="t" id="brandT">手势粒子场</div>
+</div>
+
+<div id="hint">举起手 · 比出 3、2、1</div>
+
+<div id="bar">
+  <button data-act="3">3</button>
+  <button data-act="2">2</button>
+  <button data-act="1">1</button>
+  <button data-act="heart">♥</button>
+  <button data-act="fire">✦</button>
+</div>
+
+<div id="camwrap">
+  <video id="cam" playsinline muted autoplay></video>
+  <canvas id="camcv" width="316" height="236"></canvas>
+  <div class="tag">HAND</div>
+  <div class="dot"></div>
+</div>
+
+<div id="intro">
+  <div class="inner">
+    <div class="kicker">DEEP SPACE · GESTURE DRIVEN</div>
+    <h1>深空</h1>
+    <p class="sub">用指尖唤醒星尘</p>
+    <div class="steps">
+      <div><b>3 · 2 · 1</b><span>比出手指数，星尘会汇聚成对应的数字</span></div>
+      <div><b>握拳</b><span>星尘收拢，凝成一颗心跳的心</span></div>
+      <div><b>张开手掌</b><span>满屏烟花绽放，爱心炸裂成光</span></div>
+    </div>
+    <div class="btns">
+      <button id="btnCam" class="primary">开启摄像头</button>
+      <button id="btnSkip" class="ghost">先看看效果</button>
+    </div>
+    <div class="err" id="errBox"></div>
+    <p class="foot">画面只在本机识别处理，不会上传 · 需要 https 环境</p>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* =========================================================
+     0. 基础工具
+     ========================================================= */
+  var rand = function (a, b) { return a + Math.random() * (b - a); };
+  var clamp = function (v, a, b) { return v < a ? a : (v > b ? b : v); };
+  var lerp = function (a, b, t) { return a + (b - a) * t; };
+
+  function hsl2rgb(h, s, l) {
+    h = ((h % 1) + 1) % 1;
+    var r, g, b;
+    if (s === 0) { r = g = b = l; }
+    else {
+      var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+      var p = 2 * l - q;
+      var hue2rgb = function (p, q, t) {
+        if (t < 0) t += 1; if (t > 1) t -= 1;
+        if (t < 1 / 6) return p + (q - p) * 6 * t;
+        if (t < 1 / 2) return q;
+        if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+        return p;
+      };
+      r = hue2rgb(p, q, h + 1 / 3); g = hue2rgb(p, q, h); b = hue2rgb(p, q, h - 1 / 3);
+    }
+    return [r, g, b];
+  }
+
+  function perspective(fovy, aspect, near, far) {
+    var f = 1 / Math.tan(fovy / 2), nf = 1 / (near - far);
+    return new Float32Array([
+      f / aspect, 0, 0, 0,
+      0, f, 0, 0,
+      0, 0, (far + near) * nf, -1,
+      0, 0, 2 * far * near * nf, 0
+    ]);
+  }
+
+  /* =========================================================
+     1. WebGL 初始化
+     ========================================================= */
+  var cvs = document.getElementById('gl');
+  var gl = cvs.getContext('webgl', {
+    alpha: true, antialias: false, depth: false,
+    premultipliedAlpha: false, powerPreference: 'high-performance'
+  });
+
+  var intro = document.getElementById('intro');
+  if (!gl) {
+    document.getElementById('errBox').textContent = '当前浏览器不支持 WebGL，无法渲染粒子场。';
+    return;
+  }
+
+  var VS = [
+    'attribute vec3 aPos;',
+    'attribute vec3 aCol;',
+    'attribute float aSize;',
+    'attribute float aAlpha;',
+    'uniform mat4 uProj;',
+    'uniform mat3 uRot;',
+    'uniform vec3 uShift;',
+    'uniform float uScale;',
+    'uniform float uSizeK;',
+    'uniform float uDist;',
+    'varying vec3 vCol;',
+    'varying float vAlpha;',
+    'void main(){',
+    '  vec3 p = uRot * (aPos * uScale) + uShift;',
+    '  vec4 vp = vec4(p.x, p.y, p.z - uDist, 1.0);',
+    '  gl_Position = uProj * vp;',
+    '  float d = max(-vp.z, 1.0);',
+    '  gl_PointSize = clamp(aSize * uSizeK / d, 0.7, 88.0);',
+    '  vCol = aCol;',
+    '  vAlpha = aAlpha;',
+    '}'
+  ].join('\n');
+
+  var FS = [
+    'precision mediump float;',
+    'varying vec3 vCol;',
+    'varying float vAlpha;',
+    'void main(){',
+    '  vec2 c = gl_PointCoord - vec2(0.5);',
+    '  float d = length(c) * 2.0;',
+    '  if(d > 1.0) discard;',
+    '  float soft = pow(1.0 - d, 2.2);',
+    '  float core = pow(1.0 - d, 7.0);',
+    '  vec3 col = vCol * (0.78 + core * 1.9);',
+    '  float a = (soft * 0.92 + core * 0.55) * vAlpha;',
+    '  gl_FragColor = vec4(col, a);',
+    '}'
+  ].join('\n');
+
+  function compile(type, src) {
+    var s = gl.createShader(type);
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+      console.error(gl.getShaderInfoLog(s));
+    }
+    return s;
+  }
+
+  var prog = gl.createProgram();
+  gl.attachShader(prog, compile(gl.VERTEX_SHADER, VS));
+  gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FS));
+  gl.linkProgram(prog);
+  gl.useProgram(prog);
+
+  var A = {
+    pos: gl.getAttribLocation(prog, 'aPos'),
+    col: gl.getAttribLocation(prog, 'aCol'),
+    size: gl.getAttribLocation(prog, 'aSize'),
+    alpha: gl.getAttribLocation(prog, 'aAlpha')
+  };
+  var U = {
+    proj: gl.getUniformLocation(prog, 'uProj'),
+    rot: gl.getUniformLocation(prog, 'uRot'),
+    shift: gl.getUniformLocation(prog, 'uShift'),
+    scale: gl.getUniformLocation(prog, 'uScale'),
+    sizeK: gl.getUniformLocation(prog, 'uSizeK'),
+    dist: gl.getUniformLocation(prog, 'uDist')
+  };
+
+  gl.disable(gl.DEPTH_TEST);
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+  gl.clearColor(0, 0, 0, 0);
+
+  var IS_MOBILE = /Android|iPhone|iPad|iPod|Mobile|HarmonyOS/i.test(navigator.userAgent)
+    || Math.min(window.screen.width, window.screen.height) < 620;
+
+  var FOV = 55 * Math.PI / 180;
+  var camDist = 10;
+  var sizeK = 1000;
+  var dpr = Math.min(window.devicePixelRatio || 1, IS_MOBILE ? 2 : 2);
+
+  /* =========================================================
+     2. 粒子系统容器
+     ========================================================= */
+  function makeSystem(count) {
+    var o = {
+      count: count,
+      pos: new Float32Array(count * 3),
+      col: new Float32Array(count * 3),
+      size: new Float32Array(count),
+      alpha: new Float32Array(count),
+      vel: new Float32Array(count * 3),
+      buf: {
+        pos: gl.createBuffer(),
+        col: gl.createBuffer(),
+        size: gl.createBuffer(),
+        alpha: gl.createBuffer()
+      }
+    };
+    for (var k in o.buf) {
+      if (o.buf.hasOwnProperty(k)) {
+        gl.bindBuffer(gl.ARRAY_BUFFER, o.buf[k]);
+        var arr = k === 'pos' ? o.pos : k === 'col' ? o.col : k === 'size' ? o.size : o.alpha;
+        gl.bufferData(gl.ARRAY_BUFFER, arr, gl.DYNAMIC_DRAW);
+      }
+    }
+    return o;
+  }
+
+  function upload(o, which) {
+    if (!which || which.indexOf('pos') >= 0) {
+      gl.bindBuffer(gl.ARRAY_BUFFER, o.buf.pos); gl.bufferSubData(gl.ARRAY_BUFFER, 0, o.pos);
+    }
+    if (!which || which.indexOf('col') >= 0) {
+      gl.bindBuffer(gl.ARRAY_BUFFER, o.buf.col); gl.bufferSubData(gl.ARRAY_BUFFER, 0, o.col);
+    }
+    if (!which || which.indexOf('size') >= 0) {
+      gl.bindBuffer(gl.ARRAY_BUFFER, o.buf.size); gl.bufferSubData(gl.ARRAY_BUFFER, 0, o.size);
+    }
+    if (!which || which.indexOf('alpha') >= 0) {
+      gl.bindBuffer(gl.ARRAY_BUFFER, o.buf.alpha); gl.bufferSubData(gl.ARRAY_BUFFER, 0, o.alpha);
+    }
+  }
+
+  function drawBillboard(o, rot, shift, scale) {
+    gl.uniformMatrix3fv(U.rot, false, rot);
+    gl.uniform3fv(U.shift, shift);
+    gl.uniform1f(U.scale, scale);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, o.buf.pos);
+    gl.enableVertexAttribArray(A.pos);
+    gl.vertexAttribPointer(A.pos, 3, gl.FLOAT, false, 0, 0);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, o.buf.col);
+    gl.enableVertexAttribArray(A.col);
+    gl.vertexAttribPointer(A.col, 3, gl.FLOAT, false, 0, 0);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, o.buf.size);
+    gl.enableVertexAttribArray(A.size);
+    gl.vertexAttribPointer(A.size, 1, gl.FLOAT, false, 0, 0);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, o.buf.alpha);
+    gl.enableVertexAttribArray(A.alpha);
+    gl.vertexAttribPointer(A.alpha, 1, gl.FLOAT, false, 0, 0);
+
+    gl.drawArrays(gl.POINTS, 0, o.count);
+  }
+
+  /* =========================================================
+     3. 主星尘场数据
+     ========================================================= */
+  var N = IS_MOBILE ? 10000 : 20000;
+
+  var field = makeSystem(N);
+  var home = new Float32Array(N * 3);
+  var homeCol = new Float32Array(N * 3);
+  var baseSize = new Float32Array(N);
+  var tgt = new Float32Array(N * 3);
+  var tgtCol = new Float32Array(N * 3);
+  var tgtSize = new Float32Array(N);
+  var drift = new Float32Array(N * 3);
+  var expDelay = new Float32Array(N);
+
+  (function buildNebula() {
+    var HUES = [214, 232, 250, 268, 290, 196, 322, 205];
+    var clusters = [];
+    for (var c = 0; c < 8; c++) {
+      clusters.push({
+        x: rand(-13, 13), y: rand(-8, 8), z: rand(-12, 4),
+        sx: rand(2.2, 5.4), sy: rand(1.5, 4.0), sz: rand(1.8, 4.6),
+        hue: HUES[c % HUES.length]
+      });
+    }
+
+    for (var i = 0; i < N; i++) {
+      var i3 = i * 3;
+      var x, y, z, col, size;
+
+      if (Math.random() < 0.30) {
+        // 远处尘埃
+        var u = Math.random() * 2 - 1;
+        var th = Math.random() * Math.PI * 2;
+        var r = rand(9, 30);
+        var sq = Math.sqrt(1 - u * u);
+        x = r * sq * Math.cos(th) * 1.15;
+        y = r * sq * Math.sin(th) * 0.78;
+        z = r * u * 0.92 - 5;
+        var hh = 198 + Math.random() * 92;
+        col = hsl2rgb(hh / 360, rand(0.28, 0.78), rand(0.5, 0.86));
+        size = rand(0.008, 0.021);
+        if (Math.random() < 0.035) {
+          size = rand(0.032, 0.062);
+          col = hsl2rgb(hh / 360, 0.28, 0.96);
+        }
+      } else {
+        // 星云团
+        var cl = clusters[(Math.random() * clusters.length) | 0];
+        var g = function () { return (Math.random() + Math.random() + Math.random() - 1.5) * 0.74; };
+        x = cl.x + g() * cl.sx;
+        y = cl.y + g() * cl.sy;
+        z = cl.z + g() * cl.sz;
+        col = hsl2rgb((cl.hue + rand(-16, 16)) / 360, rand(0.55, 1.0), rand(0.4, 0.72));
+        size = rand(0.009, 0.030);
+      }
+
+      home[i3] = x; home[i3 + 1] = y; home[i3 + 2] = z;
+      homeCol[i3] = col[0]; homeCol[i3 + 1] = col[1]; homeCol[i3 + 2] = col[2];
+      baseSize[i] = size;
+
+      field.col[i3] = col[0]; field.col[i3 + 1] = col[1]; field.col[i3 + 2] = col[2];
+      field.size[i] = size;
+      field.alpha[i] = 1;
+
+      // 开场：从更远处收拢
+      var spread = rand(1.7, 3.2);
+      field.pos[i3] = x * spread + rand(-4, 4);
+      field.pos[i3 + 1] = y * spread + rand(-4, 4);
+      field.pos[i3 + 2] = z * spread + rand(-4, 4);
+
+      drift[i3] = Math.random() * Math.PI * 2;
+      drift[i3 + 1] = rand(0.13, 0.46);
+      drift[i3 + 2] = rand(0.18, 1.15);
+
+      tgt[i3] = x; tgt[i3 + 1] = y; tgt[i3 + 2] = z;
+      tgtCol[i3] = col[0]; tgtCol[i3 + 1] = col[1]; tgtCol[i3 + 2] = col[2];
+      tgtSize[i] = size;
+    }
+  })();
+
+  upload(field);
+
+  /* =========================================================
+     4. 形状采样：数字 / 爱心
+     ========================================================= */
+  var glyphCache = {};
+
+  function sampleGlyph(ch) {
+    if (glyphCache[ch]) return glyphCache[ch];
+    var S = 256;
+    var c = document.createElement('canvas');
+    c.width = c.height = S;
+    var g = c.getContext('2d');
+    g.fillStyle = '#fff';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.font = '600 196px "Helvetica Neue",Helvetica,Arial,sans-serif';
+    g.fillText(ch, S / 2, S / 2 + 4);
+
+    var data = g.getImageData(0, 0, S, S).data;
+    var pts = [];
+    var minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9;
+
+    for (var y = 0; y < S; y += 2) {
+      for (var x = 0; x < S; x += 2) {
+        if (data[(y * S + x) * 4 + 3] > 130) {
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+          pts.push([x, y]);
+        }
+      }
+    }
+    if (!pts.length) return [[0, 0]];
+
+    var cx = (minX + maxX) / 2;
+    var cy = (minY + maxY) / 2;
+    var hh = Math.max(maxY - minY, 10);
+
+    var out = new Array(pts.length);
+    for (var i = 0; i < pts.length; i++) {
+      out[i] = [(pts[i][0] - cx) / (hh / 2), -(pts[i][1] - cy) / (hh / 2)];
+    }
+    glyphCache[ch] = out;
+    return out;
+  }
+
+  var heartPts = (function () {
+    var poly = [];
+    for (var t = 0; t <= Math.PI * 2 + 0.001; t += 0.012) {
+      var st = Math.sin(t);
+      poly.push({
+        x: 16 * st * st * st,
+        y: 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)
+      });
+    }
+
+    var minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9;
+    for (var i = 0; i < poly.length; i++) {
+      if (poly[i].x < minX) minX = poly[i].x;
+      if (poly[i].x > maxX) maxX = poly[i].x;
+      if (poly[i].y < minY) minY = poly[i].y;
+      if (poly[i].y > maxY) maxY = poly[i].y;
+    }
+    var cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+    var scale = 5.4 / (maxX - minX);
+    var maxR = 0;
+
+    function inPoly(px, py) {
+      var inside = false;
+      for (var i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        var xi = poly[i].x, yi = poly[i].y, xj = poly[j].x, yj = poly[j].y;
+        if (((yi > py) !== (yj > py)) && (px < (xj - xi) * (py - yi) / (yj - yi) + xi)) inside = !inside;
+      }
+      return inside;
+    }
+
+    var pts = [];
+    var guard = 0;
+    while (pts.length < 4200 && guard < 300000) {
+      guard++;
+      var px = rand(minX, maxX), py = rand(minY, maxY);
+      if (!inPoly(px, py)) continue;
+      var X = (px - cx) * scale;
+      var Y = (py - cy) * scale;
+      var d = Math.hypot(X, Y);
+      if (d > maxR) maxR = d;
+      pts.push([X, Y, d]);
+    }
+
+    var out = new Array(pts.length);
+    for (var k = 0; k < pts.length; k++) {
+      var p = pts[k];
+      var q = 1 - Math.pow(clamp(p[2] / (maxR * 0.98), 0, 1), 2);
+      var thick = 0.52 * Math.sqrt(Math.max(q, 0));
+      var zz = thick * rand(0.25, 1) * (Math.random() < 0.5 ? -1 : 1);
+      out[k] = [p[0], p[1], zz, p[2] / maxR];
+    }
+    return out;
+  })();
+
+  /* =========================================================
+     5. 形态切换
+     ========================================================= */
+  var fieldMode = 'nebula';   // nebula | shape | free
+  var phase = 'idle';
+  var expT = 0;
+  var heartPulse = 0;
+
+  var CYAN = [0.55, 0.95, 1.0];
+  var WHITE = [1, 1, 1];
+  var GOLD = [1, 0.84, 0.45];
+  var PINK_DEEP = [0.96, 0.10, 0.34];
+  var PINK_PALE = [1, 0.78, 0.88];
+
+  function setTargetsFromDigit(n) {
+    var pts = sampleGlyph(String(n));
+    var H = 5.2;
+    fieldMode = 'shape';
+    for (var i = 0; i < N; i++) {
+      var i3 = i * 3;
+      var p = pts[(Math.random() * pts.length) | 0];
+      tgt[i3] = p[0] * (H / 2) + rand(-0.03, 0.03);
+      tgt[i3 + 1] = p[1] * (H / 2) + rand(-0.03, 0.03);
+      tgt[i3 + 2] = rand(-0.10, 0.10);
+
+      var r = Math.random();
+      var c = r < 0.12 ? GOLD : (r < 0.5 ? WHITE : CYAN);
+      var m = rand(0.75, 1.0);
+      tgtCol[i3] = c[0] * m; tgtCol[i3 + 1] = c[1] * m; tgtCol[i3 + 2] = c[2] * m;
+      tgtSize[i] = rand(0.012, 0.024);
+    }
+  }
+
+  function setTargetsFromHeart() {
+    fieldMode = 'shape';
+    for (var i = 0; i < N; i++) {
+      var i3 = i * 3;
+      var p = heartPts[(Math.random() * heartPts.length) | 0];
+      tgt[i3] = p[0] + rand(-0.03, 0.03);
+      tgt[i3 + 1] = p[1] + rand(-0.03, 0.03);
+      tgt[i3 + 2] = p[2] + rand(-0.04, 0.04);
+
+      var t = Math.pow(1 - clamp(p[3], 0, 1), 1.4);
+      var c;
+      if (Math.random() < 0.07) c = GOLD;
+      else c = [lerp(PINK_DEEP[0], PINK_PALE[0], t),
+                lerp(PINK_DEEP[1], PINK_PALE[1], t),
+                lerp(PINK_DEEP[2], PINK_PALE[2], t)];
+      var m = rand(0.8, 1.0);
+      tgtCol[i3] = c[0] * m; tgtCol[i3 + 1] = c[1] * m; tgtCol[i3 + 2] = c[2] * m;
+      tgtSize[i] = rand(0.011, 0.022);
+    }
+  }
+
+  function resetToNebula() {
+    for (var i = 0; i < N; i++) {
+      var i3 = i * 3;
+      tgt[i3] = home[i3]; tgt[i3 + 1] = home[i3 + 1]; tgt[i3 + 2] = home[i3 + 2];
+      tgtCol[i3] = homeCol[i3]; tgtCol[i3 + 1] = homeCol[i3 + 1]; tgtCol[i3 + 2] = homeCol[i3 + 2];
+      tgtSize[i] = baseSize[i];
+      field.alpha[i] = 1;
+      field.vel[i3] *= 0.2; field.vel[i3 + 1] *= 0.2; field.vel[i3 + 2] *= 0.2;
+    }
+    fieldMode = 'nebula';
+  }
+
+  function explodeHeart() {
+    fieldMode = 'free';
+    expT = 0;
+    for (var i = 0; i < N; i++) {
+      var i3 = i * 3;
+      var x = field.pos[i3], y = field.pos[i3 + 1], z = field.pos[i3 + 2];
+      var len = Math.hypot(x, y, z) || 1;
+      var sp = rand(0.10, 0.62);
+      field.vel[i3] = (x / len) * sp + rand(-0.10, 0.10);
+      field.vel[i3 + 1] = (y / len) * sp + rand(-0.10, 0.10);
+      field.vel[i3 + 2] = (z / len) * sp + rand(-0.14, 0.14);
+      expDelay[i] = rand(0, 0.55);
+      // 爆散时提亮
+      var c = Math.random() < 0.45 ? GOLD : (Math.random() < 0.5 ? WHITE : PINK_PALE);
+      field.col[i3] = c[0]; field.col[i3 + 1] = c[1]; field.col[i3 + 2] = c[2];
+      tgtCol[i3] = c[0]; tgtCol[i3 + 1] = c[1]; tgtCol[i3 + 2] = c[2];
+      tgtSize[i] = rand(0.014, 0.032);
+      field.size[i] = tgtSize[i];
+    }
+    upload(field, ['col', 'size']);
+  }
+
+  /* =========================================================
+     6. 烟花系统
+     ========================================================= */
+  var FW_N = IS_MOBILE ? 5200 : 11000;
+  var fw = makeSystem(FW_N);
+  var fwLife = new Float32Array(FW_N);
+  var fwMax = new Float32Array(FW_N);
+  var fwCursor = 0;
+
+  fw.alpha.fill(0);
+  upload(fw);
+
+  var FW_PALETTES = [
+    [1.0, 0.28, 0.42], [1.0, 0.80, 0.36], [0.36, 0.80, 1.0],
+    [0.68, 0.44, 1.0], [0.42, 1.0, 0.72], [1.0, 0.56, 0.86], [1, 1, 1]
+  ];
+
+  function spawnBurst(cx, cy, cz, count, palette) {
+    var pal = palette || FW_PALETTES[(Math.random() * FW_PALETTES.length) | 0];
+    var power = rand(0.09, 0.26);
+    for (var k = 0; k < count; k++) {
+      var i = fwCursor; fwCursor = (fwCursor + 1) % FW_N;
+      var i3 = i * 3;
+      var u = Math.random() * 2 - 1;
+      var th = Math.random() * Math.PI * 2;
+      var sq = Math.sqrt(1 - u * u);
+      var sp = power * (0.35 + Math.pow(Math.random(), 0.5) * 0.9);
+      fw.pos[i3] = cx; fw.pos[i3 + 1] = cy; fw.pos[i3 + 2] = cz;
+      fw.vel[i3] = sq * Math.cos(th) * sp;
+      fw.vel[i3 + 1] = u * sp + power * 0.35;
+      fw.vel[i3 + 2] = sq * Math.sin(th) * sp * 0.75;
+      var warm = Math.random();
+      fw.col[i3] = lerp(pal[0], 1, warm * 0.45);
+      fw.col[i3 + 1] = lerp(pal[1], 1, warm * 0.45);
+      fw.col[i3 + 2] = lerp(pal[2], 1, warm * 0.45);
+      fw.size[i] = rand(0.012, 0.030);
+      fwMax[i] = rand(1.0, 2.3);
+      fwLife[i] = fwMax[i];
+      fw.alpha[i] = 1;
+    }
+    upload(fw, ['pos', 'col', 'size', 'alpha']);
+  }
+
+  function spawnRandomBurst() {
+    var halfH = Math.tan(FOV / 2) * camDist;
+    var halfW = halfH * (cvs.clientWidth / Math.max(cvs.clientHeight, 1));
+    spawnBurst(
+      rand(-halfW * 0.72, halfW * 0.72),
+      rand(-halfH * 0.62, halfH * 0.55),
+      rand(-6, 4),
+      IS_MOBILE ? 70 : 130
+    );
+  }
+
+  function updateFireworks(dt) {
+    var f = clamp(dt * 60, 0.4, 2.4);
+    var alive = 0;
+    for (var i = 0; i < FW_N; i++) {
+      if (fwLife[i] <= 0) continue;
+      alive++;
+      var i3 = i * 3;
+      fw.pos[i3] += fw.vel[i3] * f;
+      fw.pos[i3 + 1] += fw.vel[i3 + 1] * f;
+      fw.pos[i3 + 2] += fw.vel[i3 + 2] * f;
+      fw.vel[i3] *= 0.982;
+      fw.vel[i3 + 1] = fw.vel[i3 + 1] * 0.982 - 0.0034 * f;
+      fw.vel[i3 + 2] *= 0.982;
+      fwLife[i] -= dt;
+      var t = fwLife[i] / fwMax[i];
+      if (t <= 0) { fw.alpha[i] = 0; fwLife[i] = 0; }
+      else {
+        fw.alpha[i] = Math.pow(clamp(t, 0, 1), 0.75) * (0.55 + 0.45 * Math.min(1, (1 - t) * 6));
+        fw.size[i] *= 0.996;
+      }
+    }
+    if (alive > 0) upload(fw, ['pos', 'alpha', 'size']);
+    return alive;
+  }
+
+  /* =========================================================
+     7. 渲染尺寸
+     ========================================================= */
+  var proj = perspective(FOV, 1, 0.5, 220);
+
+  function resize() {
+    var w = window.innerWidth, h = window.innerHeight;
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    cvs.width = Math.max(1, Math.floor(w * dpr));
+    cvs.height = Math.max(1, Math.floor(h * dpr));
+    cvs.style.width = w + 'px';
+    cvs.style.height = h + 'px';
+    gl.viewport(0, 0, cvs.width, cvs.height);
+
+    var aspect = w / h;
+    camDist = aspect >= 1.05 ? 10 : 10 * Math.min(1.05 / aspect, 2.15);
+    proj = perspective(FOV, aspect, 0.5, 220);
+    sizeK = (cvs.height / 2) / Math.tan(FOV / 2) * 1.7;
+    gl.uniformMatrix4fv(U.proj, false, proj);
+    gl.uniform1f(U.sizeK, sizeK);
+    gl.uniform1f(U.dist, camDist);
+  }
+  window.addEventListener('resize', resize);
+
+  /* =========================================================
+     8. 主循环
+     ========================================================= */
+  var t0 = performance.now();
+  var last = t0;
+  var time = 0;
+  var shift = new Float32Array([0, 0, 0]);
+  var shiftT = new Float32Array([0, 0, 0]);
+  var yaw = 0, pitch = 0;
+  var yawT = 0, pitchT = 0;
+  var fieldScale = 1;
+
+  function rotMat(yawA, pitchA) {
+    var cy = Math.cos(yawA), sy = Math.sin(yawA);
+    var cp = Math.cos(pitchA), sp = Math.sin(pitchA);
+    // R = Ry * Rx , row-major then convert to column-major
+    var m = [
+      cy, sy * sp, sy * cp,
+      0, cp, -sp,
+      -sy, cy * sp, cy * cp
+    ];
+    return new Float32Array([m[0], m[3], m[6], m[1], m[4], m[7], m[2], m[5], m[8]]);
+  }
+
+  function updateField(dt, t) {
+    var f = clamp(dt * 60, 0.35, 2.4);
+    var pos = field.pos, vel = field.vel, col = field.col;
+    var neb = fieldMode === 'nebula';
+    var free = fieldMode === 'free';
+    var i, i3;
+
+    if (neb) {
+      for (i = 0; i < N; i++) {
+        i3 = i * 3;
+        var a = t * drift[i3 + 1] + drift[i3];
+        var amp = drift[i3 + 2];
+        tgt[i3] = home[i3] + Math.sin(a) * amp;
+        tgt[i3 + 1] = home[i3 + 1] + Math.cos(a * 0.83) * amp * 0.85;
+        tgt[i3 + 2] = home[i3 + 2] + Math.sin(a * 0.61 + 1.7) * amp;
+      }
+    }
+
+    var k = free ? 0 : (neb ? 0.018 : 0.052);
+    var damp = free ? 0.9935 : (neb ? 0.90 : 0.868);
+    var cmix = clamp(0.07 * f, 0, 1);
+    var smix = clamp(0.06 * f, 0, 1);
+
+    for (i = 0; i < N; i++) {
+      i3 = i * 3;
+      var px = pos[i3], py = pos[i3 + 1], pz = pos[i3 + 2];
+      var vx = vel[i3], vy = vel[i3 + 1], vz = vel[i3 + 2];
+
+      if (k > 0) {
+        vx = (vx + (tgt[i3] - px) * k) * damp;
+        vy = (vy + (tgt[i3 + 1] - py) * k) * damp;
+        vz = (vz + (tgt[i3 + 2] - pz) * k) * damp;
+      } else {
+        vx *= damp;
+        vy = vy * damp - 0.0026 * f;
+        vz *= damp;
+      }
+
+      pos[i3] = px + vx * f;
+      pos[i3 + 1] = py + vy * f;
+      pos[i3 + 2] = pz + vz * f;
+      vel[i3] = vx; vel[i3 + 1] = vy; vel[i3 + 2] = vz;
+
+      col[i3] += (tgtCol[i3] - col[i3]) * cmix;
+      col[i3 + 1] += (tgtCol[i3 + 1] - col[i3 + 1]) * cmix;
+      col[i3 + 2] += (tgtCol[i3 + 2] - col[i3 + 2]) * cmix;
+
+      field.size[i] += (tgtSize[i] - field.size[i]) * smix;
+    }
+
+    if (free) {
+      expT += dt;
+      for (i = 0; i < N; i++) {
+        var a2 = 1 - clamp((expT - expDelay[i]) / 2.0, 0, 1);
+        field.alpha[i] = a2 * a2;
+      }
+      upload(field, ['pos', 'col', 'size', 'alpha']);
+    } else {
+      upload(field, ['pos', 'col', 'size']);
+    }
+  }
+
+  function frame(now) {
+    var dt = Math.min((now - last) / 1000, 0.06);
+    last = now;
+    time += dt;
+
+    var wantYaw = (fieldMode === 'shape') ? Math.sin(time * 0.42) * 0.16 : time * 0.055;
+    var wantPitch = (fieldMode === 'shape') ? Math.sin(time * 0.31) * 0.07 : Math.sin(time * 0.19) * 0.11;
+    yaw = lerp(yaw, wantYaw, 0.045);
+    pitch = lerp(pitch, wantPitch, 0.045);
+
+    shift[0] += (shiftT[0] - shift[0]) * 0.06;
+    shift[1] += (shiftT[1] - shift[1]) * 0.06;
+
+    if (phase === 'heart') heartPulse = lerp(heartPulse, 1, 0.05);
+    else heartPulse = lerp(heartPulse, 0, 0.05);
+
+    fieldScale = 1 + Math.sin(time * 3.1) * 0.026 * heartPulse;
+
+    gl.clear(gl.COLOR_BUFFER_BIT);
+
+    updateField(dt, time);
+    drawBillboard(field, rotMat(yaw, pitch), shift, fieldScale);
+
+    var alive = updateFireworks(dt);
+    if (alive > 0 || fwPrevAlive > 0) {
+      drawBillboard(fw, rotMat(0, 0), shift, 1);
+    }
+    fwPrevAlive = alive;
+
+    requestAnimationFrame(frame);
+  }
+  var fwPrevAlive = 0;
+
+  /* =========================================================
+     9. 阶段控制
+     ========================================================= */
+  var hintEl = document.getElementById('hint');
+  var glowEl = document.getElementById('glow');
+  var brandEl = document.getElementById('brand');
+  var barEl = document.getElementById('bar');
+
+  var HINTS = {
+    idle: '举起手 · 比出 3、2、1',
+    countdown: '握拳，星尘会凝成一颗心',
+    heart: '手掌张开 ✦',
+    finale: ''
+  };
+
+  function setPhase(p) {
+    phase = p;
+    if (p === 'heart') {
+      heartPulse = 0.2;
+      glowEl.style.opacity = '1';
+    } else {
+      glowEl.style.opacity = '0';
+    }
+    hintEl.textContent = HINTS[p] || '';
+    hintEl.classList.toggle('on', !!HINTS[p]);
+  }
+
+  var lastAction = 0;
+
+  function doDigit(n) {
+    var now = performance.now();
+    if (now - lastAction < 420 || phase === 'finale') return;
+    lastAction = now;
+    setTargetsFromDigit(n);
+    setPhase('countdown');
+    // 粒子爆发一个轻微的冲击
+    for (var i = 0; i < N; i += 17) {
+      var i3 = i * 3;
+      field.vel[i3] += rand(-0.05, 0.05);
+      field.vel[i3 + 1] += rand(-0.05, 0.05);
+    }
+  }
+
+  function doHeart() {
+    var now = performance.now();
+    if (now - lastAction < 380 || phase === 'finale') return;
+    lastAction = now;
+    setTargetsFromHeart();
+    setPhase('heart');
+  }
+
+  function doFinale() {
+    if (phase === 'finale') return;
+    var now = performance.now();
+    if (now - lastAction < 300) return;
+    lastAction = now;
+
+    setPhase('finale');
+    explodeHeart();
+
+    var n = 0;
+    var total = IS_MOBILE ? 14 : 22;
+    var iv = setInterval(function () {
+      spawnRandomBurst();
+      if (++n >= total) clearInterval(iv);
+    }, 210);
+
+    // 立刻来两发
+    spawnRandomBurst();
+    setTimeout(spawnRandomBurst, 90);
+
+    // 一段时间后回到星尘
+    setTimeout(function () {
+      if (phase !== 'finale') return;
+      resetToNebula();
+      setPhase('idle');
+    }, 7200);
+  }
+
+  /* =========================================================
+     10. 手势识别
+     ========================================================= */
+  var video = document.getElementById('cam');
+  var camcv = document.getElementById('camcv');
+  var camctx = camcv.getContext('2d');
+  var camwrap = document.getElementById('camwrap');
+  var hands = null;
+  var camOn = false;
+  var lastSeen = 0;
+  var countHist = [];
+  var stableCount = null;
+
+  var CONN = [
+    [0, 1], [1, 2], [2, 3], [3, 4],
+    [0, 5], [5, 6], [6, 7], [7, 8],
+    [5, 9], [9, 10], [10, 11], [11, 12],
+    [9, 13], [13, 14], [14, 15], [15, 16],
+    [13, 17], [0, 17], [17, 18], [18, 19], [19, 20]
+  ];
+
+  function d2(a, b) {
+    var dx = a.x - b.x, dy = a.y - b.y;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  // 只数食指~小指（拇指不计入，更稳定）
+  var FINGER_CHAINS = [[5, 6, 8], [9, 10, 12], [13, 14, 16], [17, 18, 20]];
+
+  function countFingers(lm) {
+    var wrist = lm[0];
+    var c = 0;
+    for (var f = 0; f < FINGER_CHAINS.length; f++) {
+      var mcp = lm[FINGER_CHAINS[f][0]];
+      var pip = lm[FINGER_CHAINS[f][1]];
+      var tip = lm[FINGER_CHAINS[f][2]];
+      var a = d2(tip, wrist) / Math.max(d2(pip, wrist), 1e-4);
+      if (a > 1.28) c++;
+    }
+    return c;
+  }
+
+  function drawCam(lm) {
+    var w = camcv.width, h = camcv.height;
+    camctx.clearRect(0, 0, w, h);
+    if (!lm) return;
+
+    camctx.save();
+    camctx.translate(w, 0);
+    camctx.scale(-1, 1);
+
+    camctx.lineWidth = 2;
+    camctx.strokeStyle = 'rgba(120,235,255,.75)';
+    camctx.shadowColor = 'rgba(90,210,255,.9)';
+    camctx.shadowBlur = 8;
+
+    for (var i = 0; i < CONN.length; i++) {
+      var a = lm[CONN[i][0]], b = lm[CONN[i][1]];
+      camctx.beginPath();
+      camctx.moveTo(a.x * w, a.y * h);
+      camctx.lineTo(b.x * w, b.y * h);
+      camctx.stroke();
+    }
+    camctx.fillStyle = 'rgba(255,255,255,.95)';
+    for (var k = 0; k < lm.length; k++) {
+      camctx.beginPath();
+      camctx.arc(lm[k].x * w, lm[k].y * h, k % 4 === 0 ? 3 : 2, 0, Math.PI * 2);
+      camctx.fill();
+    }
+    camctx.restore();
+  }
+
+  function onStable(c) {
+    var now = performance.now();
+    if (now - lastSeen > 600) return;
+    if (c >= 1 && c <= 3) doDigit(c);
+    else if (c === 0) doHeart();
+    else if (c >= 4) {
+      if (phase === 'heart') doFinale();
+    }
+  }
+
+  function onHandResults(res) {
+    var lm = (res.multiHandLandmarks && res.multiHandLandmarks.length)
+      ? res.multiHandLandmarks[0] : null;
+    drawCam(lm);
+
+    if (!lm) {
+      countHist.length = 0;
+      stableCount = null;
+      return;
+    }
+    lastSeen = performance.now();
+
+    var c = countFingers(lm);
+    countHist.push(c);
+    if (countHist.length > 6) countHist.shift();
+
+    if (countHist.length === 6) {
+      var same = true;
+      for (var i = 1; i < 6; i++) if (countHist[i] !== countHist[0]) { same = false; break; }
+      if (same && stableCount !== c) {
+        stableCount = c;
+        onStable(c);
+      }
+    }
+
+    // 手的位置轻微影响视角
+    var hx = (0.5 - lm[0].x) * 3.2;
+    var hy = (0.5 - lm[0].y) * 2.2;
+    shiftT[0] = clamp(hx, -1.6, 1.6);
+    shiftT[1] = clamp(hy, -1.2, 1.2);
+  }
+
+  async function startHands() {
+    for (var w = 0; w < 40 && typeof window.Hands === 'undefined'; w++) {
+      await new Promise(function (r) { setTimeout(r, 200); });
+    }
+    if (typeof window.Hands === 'undefined') {
+      document.getElementById('errBox').textContent =
+        '手势引擎加载失败（网络受限）。仍可用下方按钮或键盘 3 / 2 / 1 / F / 空格 触发。';
+      return;
+    }
+    try {
+      hands = new window.Hands({
+        locateFile: function (f) {
+          return 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/' + f;
+        }
+      });
+      hands.setOptions({
+        maxNumHands: 1,
+        modelComplexity: 0,
+        minDetectionConfidence: 0.62,
+        minTrackingConfidence: 0.6
+      });
+      hands.onResults(onHandResults);
+      pump();
+    } catch (e) {
+      console.warn(e);
+      document.getElementById('errBox').textContent = '手势引擎初始化失败，可用下方按钮手动触发。';
+    }
+  }
+
+  var pumping = false;
+  async function pump() {
+    if (pumping) return;
+    pumping = true;
+    var lastRun = 0;
+    while (camOn) {
+      var now = performance.now();
+      if (video.readyState >= 2 && now - lastRun > 42) {
+        lastRun = now;
+        try { await hands.send({ image: video }); } catch (e) { /* ignore */ }
+      }
+      await new Promise(function (r) { requestAnimationFrame(r); });
+    }
+    pumping = false;
+  }
+
+  async function enableCamera() {
+    var errBox = document.getElementById('errBox');
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      errBox.textContent = '当前环境不支持摄像头（需要 https 或 localhost）。';
+      return false;
+    }
+    try {
+      var stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+        audio: false
+      });
+      video.srcObject = stream;
+      await video.play();
+      camOn = true;
+      camwrap.classList.add('on');
+      return true;
+    } catch (e) {
+      var msg = '无法开启摄像头：';
+      if (e && (e.name === 'NotAllowedError' || e.name === 'SecurityError')) {
+        msg += '权限被拒绝。请在浏览器地址栏的权限设置中允许摄像头，然后刷新页面。';
+      } else if (e && e.name === 'NotFoundError') {
+        msg += '没有检测到摄像头设备。';
+      } else {
+        msg += (e && e.message) || '未知错误';
+      }
+      errBox.textContent = msg;
+      return false;
+    }
+  }
+
+  /* =========================================================
+     11. 交互
+     ========================================================= */
+  function dismissIntro() {
+    intro.classList.add('gone');
+    brandEl.classList.add('on');
+    barEl.classList.add('on');
+    setPhase('idle');
+  }
+
+  document.getElementById('btnCam').addEventListener('click', async function () {
+    this.textContent = '连接中…';
+    this.disabled = true;
+    var ok = await enableCamera();
+    dismissIntro();
+    if (ok) {
+      document.getElementById('hint').textContent = '把手放进画面里';
+      startHands();
+      setTimeout(function () {
+        if (phase === 'idle') document.getElementById('hint').textContent = HINTS.idle;
+      }, 2600);
+    }
+  });
+
+  document.getElementById('btnSkip').addEventListener('click', function () {
+    dismissIntro();
+    document.getElementById('hint').textContent = '未开启摄像头 · 可用下方按钮 / 键盘体验';
+  });
+
+  barEl.addEventListener('click', function (e) {
+    var b = e.target.closest('button');
+    if (!b) return;
+    var a = b.getAttribute('data-act');
+    if (a === 'heart') doHeart();
+    else if (a === 'fire') doFinale();
+    else doDigit(parseInt(a, 10));
+  });
+
+  window.addEventListener('keydown', function (e) {
+    if (e.key === '3' || e.key === '2' || e.key === '1') doDigit(parseInt(e.key, 10));
+    else if (e.key === 'f' || e.key === 'F') doHeart();
+    else if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); doFinale(); }
+  });
+
+  // 指针视差 + 点击放烟花
+  window.addEventListener('pointermove', function (e) {
+    var nx = (e.clientX / window.innerWidth) * 2 - 1;
+    var ny = (e.clientY / window.innerHeight) * 2 - 1;
+    shiftT[0] = nx * 0.9;
+    shiftT[1] = -ny * 0.7;
+    yawT = nx * 0.08;
+  });
+
+  window.addEventListener('pointerdown', function (e) {
+    if (!intro.classList.contains('gone')) return;
+    if (e.target && e.target.closest && e.target.closest('#bar,#camwrap')) return;
+    var halfH = Math.tan(FOV / 2) * camDist;
+    var halfW = halfH * (window.innerWidth / Math.max(window.innerHeight, 1));
+    var x = ((e.clientX / window.innerWidth) * 2 - 1) * halfW;
+    var y = (1 - (e.clientY / window.innerHeight) * 2) * halfH;
+    var small = IS_MOBILE ? 34 : 60;
+    spawnBurst(x, y, rand(-3, 2), small);
+  });
+
+  /* =========================================================
+     12. 启动
+     ========================================================= */
+  resize();
+  requestAnimationFrame(frame);
+
+  // 动态加载手势库（不阻塞渲染）
+  (function loadHands() {
+    var s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js';
+    s.crossOrigin = 'anonymous';
+    s.onload = function () { window.__handsReady = true; };
+    document.head.appendChild(s);
+  })();
+})();
+</script>
+</body>
+</html>
